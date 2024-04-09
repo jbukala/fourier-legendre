@@ -4,12 +4,18 @@ import FFT
 import Data.List
 import RootOfUnity
 
-import Math.Polynomial.Lagrange
-import Math.Polynomial.Legendre
-import Math.Polynomial.Interpolation
+--import Math.Polynomial.Legendre
 
 enumerate :: Num a => [a] -> [(a, a)]
 enumerate z = zip (map fromIntegral [1..]) z
+
+-- Evaluate Legendre by Bonnet's method
+-- n * P_{n}(x) = (2n-1) x P_{n-1}(x) - (n-1) P_{n-2}(x)
+evalLegendre :: Fractional a => Int -> a -> a
+evalLegendre 0 x = 1
+evalLegendre 1 x = x
+evalLegendre n x = ((2*nf - 1) * (evalLegendre (n-1) x) - (nf-1) * (evalLegendre (n-2) x)) / nf
+  where nf = fromIntegral n
 
 -- Evaluate all Legendre polynomials up to a certain order at a point
 evalNLegendres :: Fractional a => Int -> a -> [a]
@@ -17,15 +23,15 @@ evalNLegendres 0 x = [1]
 evalNLegendres order x = (evalNLegendres (order-1) x) ++ [evalLegendre order x]
 
 -- Function to generate equally spaced points between two given numbers
---module TestFFT (test_fft) where
 equallySpacedPoints :: (Fractional a, Enum a) => a -> a -> Int -> [a]
 equallySpacedPoints start end n = [start + (fromIntegral i) * step | i <- [0..n-1]]
   where
     step = (end - start) / fromIntegral (n - 1)
 
--- Calculate inner product between two vectors
-innerProd :: Fractional a => [a] -> [a] -> a
-innerProd xs ys = sum (zipWith (*) xs ys)
+-- approximate the inner product between two 1-D functions (R -> R) numerically
+-- Takes sampled points, calculate the average value of f(x)*g(x) and multiply by the support size [-1,1]=2 in this case
+fnInnerProd :: Fractional a => [a] -> [a] -> a
+fnInnerProd xs ys = ((sum (zipWith (*) xs ys)) / (fromIntegral (length xs))) * 2
 
 -- Reconstruct data point from Legendre base
 reconstructFromLegendre :: Fractional a => [a] -> a -> a
@@ -33,34 +39,30 @@ reconstructFromLegendre base xs = sum ( zipWith (*) base (evalNLegendres order x
   where
       order = length base
 
+-- Make sure the sum of all elements of a list equals 1
 normalizeList :: Fractional a => [a] -> [a]
 normalizeList xs = map (/ total) xs
   where
     total = sum xs
+
+-- Mean Square error given two lists of y_true and y_hat
+mse :: Fractional a => [a] -> [a] -> a
+mse y_true y_hat = sum (map (\c -> c^^2) (zipWith (-) y_true y_hat))
 
 
 main :: IO ()
 main = do
   --inputText <- getLine
   putStrLn "Input data: "
-  let y = [1, 4, 5, 2, 4, 6, -6]
+  let y = [1, 4, 5, 2, 4, 6, -6, -8, -9, -10, -6, -3, -2, -1, 1, 5, 18, 20, 14, 20]
   print y
-
-  --let xy = enumerate y
-  --print xy
 
   --putStrLn "FFT of data: "
   --print (fft y)
 
-  --utStrLn "Lagrangian fit of data: "
-  --print (lagrangePolyFit xy)
-
-  --putStrLn "Legendre polynomials orthogonal basis: "
-  --print (take 3 legendres)
-
   let x_min = -1 :: Float
   let x_max = 1 :: Float
-  let maxLegendreOrder = 6 :: Int
+  let maxLegendreOrder = 20 :: Int -- Legendre order starts from 0, so number of terms is max order + 1
   let x = equallySpacedPoints x_min x_max (length y)
   putStrLn "Equally spaced points x: "
   print x
@@ -68,16 +70,22 @@ main = do
   let legEval = transpose (map (evalNLegendres maxLegendreOrder) x)
   print legEval
 
-  putStrLn "Evaluate product of L(n) and y for all datapoints and sum them. This should be <L(n), y>. Do this for all n under max Legendre order: "
-  let legendreBase = map (innerProd y) legEval
+ -- Evaluate product of L(n) and y for all datapoints and sum them. Divide by the # of points to average it. 
+ -- This should be <L(n), y>. Do this for all n under max Legendre order: "
+  putStrLn "Calculate <L(n), y>"
+  let legBaseNormFactor = [((2 * (fromIntegral i)) + 1)/2 | i <- [0..maxLegendreOrder]]
+  putStrLn "Legendre Base normalization factors: "
+  print legBaseNormFactor
+  let legendreBase = zipWith (*) (map (fnInnerProd y) legEval) legBaseNormFactor
+  putStrLn "Legendre Base: "
   print legendreBase
 
-  -- This should be an unnormalized Legendre base polynomial representation of our dataset. Now time to reconstruct:
-  -- Divide legendreBase by length n to get normalization factor? L(0) should then give the average at least.
+  -- This should be a Legendre base polynomial representation of our dataset. Now time to reconstruct:
   let y_hat = map (reconstructFromLegendre legendreBase) x
+  putStrLn "y_hat: "
   print y_hat
 
-  putStrLn "Now a normalized y and then y_hat: "
-  print (normalizeList y)
-  print (normalizeList y_hat)
+  -- Calculate MSE:
+  putStrLn "MSE: "
+  print (mse y y_hat)
 

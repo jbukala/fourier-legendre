@@ -11,7 +11,7 @@ cabal-version:      2.4
 --   http://haskell.org/cabal/users-guide/
 --
 -- The name of the package.
-name:               lagrange-compression
+name:               legendre-compression
 
 -- The package version.
 -- See the Haskell package versioning policy (PVP) for standards
@@ -23,7 +23,7 @@ name:               lagrange-compression
 version:            0.1.0.0
 
 -- A short (one-line) description of the package.
-synopsis:           lagrange polynomials for sound and image compression
+synopsis:           Legendre polynomials for sound and image compression
 
 -- A longer description of the package.
 -- description:
@@ -32,7 +32,7 @@ synopsis:           lagrange polynomials for sound and image compression
 homepage:           https://www.jorisbukala.com
 
 -- The license under which the package is released.
-license:            NONE
+license:            MIT
 
 -- The package author(s).
 author:             J Bukala
